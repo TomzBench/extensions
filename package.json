@@ -1,0 +1,15 @@
+{
+  "name": "extensions",
+  "private": true,
+  "scripts": {
+    "dev:summarizer": "pnpm --filter summarizer dev",
+    "build:summarizer": "pnpm --filter summarizer build",
+    "dev:agents": "pnpm --filter @extensions/agents dev",
+    "build:agents": "pnpm --filter @extensions/agents build",
+    "build": "pnpm -r build",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2"
+  }
+}

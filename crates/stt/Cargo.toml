@@ -1,0 +1,25 @@
+[package]
+name = "stt"
+version = "0.1.0"
+edition = "2021"
+
+[lints.rust]
+unsafe_code = "allow"  # Required for ffmpeg FFI
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+# Allow specific pedantic lints that are too noisy
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+
+[lib]
+name = "stt"
+crate-type = ["rlib"]
+
+[dependencies]
+ffmpeg-next = "7"  # Requires libav*-dev packages installed
+
+[dev-dependencies]
+symphonia = { version = "0.5", features = ["mp3"] }

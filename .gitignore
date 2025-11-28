@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.egg-info/
+
+# Build outputs
+dist/
+build/
+*.whl
+target/
+
+# TypeScript/JavaScript
+*.tsbuildinfo
+.output/
+.wxt/
+
+# Python
+*.pyc
+*.pyo
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# test fixture data (may contain personally identifying info like ip addr)
+**/.fixtures/
+
+# Rust
+Cargo.lock
+*.rlib
+*.rmeta
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
