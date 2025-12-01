@@ -10,7 +10,7 @@ import reactivex as rx
 from reactivex import Observable
 from reactivex import operators as ops
 from reactivex.abc import SchedulerBase
-from streams import buffer_with_count_or_complete, from_async
+from streams import buffer_with_count_or_complete, from_async_threadsafe
 from streams.utils import Operator
 
 from audio._stt import Whisper
@@ -54,7 +54,9 @@ class Transcriber:
             return window
 
         def transcribe_window(window: AudioChunk) -> Observable[str]:
-            return from_async(lambda: asyncio.to_thread(whisper.transcribe, window), loop)
+            return from_async_threadsafe(
+                lambda: asyncio.to_thread(whisper.transcribe, window), loop
+            )
 
         def _operator(source: Observable[AudioChunk]) -> Observable[str]:
             seed: deque[AudioChunk] = deque(maxlen=max_chunks)

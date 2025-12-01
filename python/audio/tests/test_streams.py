@@ -4,15 +4,18 @@ import asyncio
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from audio.stream import download_audio
 
 FIXTURES_DIR = Path(__file__).parent / ".fixtures"
 VIDEO_ID = "dQw4w9WgXcQ"
 
 
+@pytest.mark.asyncio
 @patch("audio.stream.tempfile.TemporaryDirectory")
 @patch("audio.stream.YoutubeDL")
-def test_download_audio_emits_chunked_audio(
+async def test_download_audio_emits_chunked_audio(
     mock_ydl_class: MagicMock, mock_tmpdir: MagicMock
 ) -> None:
     """Test that download_audio extracts and chunks audio."""
@@ -37,7 +40,7 @@ def test_download_audio_emits_chunked_audio(
         on_error=errors.append,
     )
 
-    asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.1))
+    await asyncio.sleep(0.1)
 
     assert errors == [], f"Unexpected error: {errors}"
     assert len(results) == 1

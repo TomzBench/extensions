@@ -1,10 +1,12 @@
 """Tests for STT transcribe operator."""
 
 import asyncio
+from unittest.mock import MagicMock
 
 import numpy as np
 import reactivex as rx
 
+from audio._stt import Whisper
 from audio.stt import CHUNK_SIZE, Transcriber
 from audio.types import AudioChunk
 
@@ -14,20 +16,19 @@ def chunk(value: float = 0.0) -> AudioChunk:
     return np.full(CHUNK_SIZE, value, dtype=np.float32)
 
 
-class MockWhisper:
-    """Mock Whisper that returns text based on first sample value."""
+def mock_whisper(responses: dict[float, str] | None = None) -> MagicMock:
+    """Create a mock Whisper that returns text based on first sample value."""
+    responses = responses or {}
+    mock = MagicMock(spec=Whisper)
+    mock.calls = []
 
-    def __init__(self, responses: dict[float, str] | None = None):
-        self._responses = responses or {}
-        self.calls: list[AudioChunk] = []
-
-    def transcribe(self, samples: AudioChunk) -> str:
-        self.calls.append(samples)
+    def transcribe(samples: AudioChunk) -> str:
+        mock.calls.append(samples)
         key = round(float(samples[0]), 1)
-        return self._responses.get(key, "")
+        return responses.get(key, "")
 
-    def close(self) -> None:
-        pass
+    mock.transcribe.side_effect = transcribe
+    return mock
 
 
 def test_transcriber_accumulates_chunks_and_emits() -> None:
@@ -36,7 +37,7 @@ def test_transcriber_accumulates_chunks_and_emits() -> None:
     Note: switch_map drops in-flight transcriptions when new windows arrive.
     With synchronous emission, only the last window's transcription completes.
     """
-    whisper = MockWhisper({0.0: "hello world"})
+    whisper = mock_whisper({0.0: "hello world"})
     loop = asyncio.new_event_loop()
 
     # emit_interval=1024 with CHUNK_SIZE=512 means emit every 2 chunks

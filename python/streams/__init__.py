@@ -1,9 +1,13 @@
 """Shared stream infrastructure for RxPy-based reactive patterns."""
 
-from streams.utils import buffer_with_count_or_complete, from_async, take_while_inclusive
+from streams.buffer_with_count_or_complete import buffer_with_count_or_complete
+from streams.from_async import from_async
+from streams.from_async_threadsafe import from_async_threadsafe
+from streams.take_while_inclusive import take_while_inclusive
 
 __all__ = [
     "buffer_with_count_or_complete",
     "from_async",
+    "from_async_threadsafe",
     "take_while_inclusive",
 ]
