@@ -2,14 +2,23 @@
 
 from collections.abc import Iterator
 
+import numpy as np
+from numpy.typing import NDArray
+
 class AudioChunks(Iterator[bytes]):
-    """Iterator over audio chunks from a file.
-
-    Args:
-        path: Path to the audio file.
-        chunk_duration_ms: Duration of each chunk in milliseconds.
-    """
-
     def __new__(cls, path: str, chunk_duration_ms: int) -> AudioChunks: ...
     def __iter__(self) -> AudioChunks: ...
     def __next__(self) -> bytes: ...
+
+class Whisper:
+    def __new__(cls, model_path: str) -> Whisper: ...
+    def transcribe(self, samples: NDArray[np.float32]) -> str: ...
+    def close(self) -> None: ...
+    def is_open(self) -> bool: ...
+    def __enter__(self) -> Whisper: ...
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: object | None,
+    ) -> bool: ...

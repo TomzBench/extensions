@@ -2,11 +2,14 @@
 name = "extensions"
 version = "0.0.1"
 description = "Audio processing backend"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "mypy>=1.18.2",
+    "numpy>=2.3.5",
     "pydub>=0.25.1",
     "reactivex>=4.0.0",
+    "silero-vad-lite>=0.2.1",
+    "sounddevice>=0.5.3",
     "types-yt-dlp>=2025.11.12.20251115",
     "yt-dlp>=2024.0.0",
 ]
@@ -18,7 +21,7 @@ neovim = [
 ]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 100
 fix = true
 
@@ -40,7 +43,7 @@ select = [
 
 # Mypy configuration
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 mypy_path = "python"
 packages = ["audio", "streams"]
 explicit_package_bases = true
@@ -61,22 +64,18 @@ exclude = [
 ]
 
 [[tool.mypy.overrides]]
-module = ["pytest", "reactivex.testing.marbles"]
+module = ["pytest", "reactivex.testing.marbles", "silero_vad_lite"]
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = ["*.tests.*", "*.tests"]
-disallow_untyped_defs = false
-check_untyped_defs = false
 
 
 [tool.pyright]
-pythonVersion = "3.11"
-root = "python"
+pythonVersion = "3.12"
+include = ["python"]
+extraPaths = ["python"]
 venvPath = "."
 venv = ".venv"
 typeCheckingMode = "standard"
-ignore = ["**/tests/**"]
 reportMissingImports = "warning"
 reportUnknownMemberType = false
 

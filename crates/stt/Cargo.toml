@@ -20,6 +20,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 ffmpeg-next = "7"  # Requires libav*-dev packages installed
+whisper-rs = "0.14"  # Bindings to whisper.cpp
 
 [dev-dependencies]
 symphonia = { version = "0.5", features = ["mp3"] }

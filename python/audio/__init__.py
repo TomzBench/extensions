@@ -1,3 +1,5 @@
 """Audio processing utilities."""
 
-__all__ = []
+from audio.rechunk import rechunk
+
+__all__ = ["rechunk"]

@@ -6,12 +6,12 @@ from unittest.mock import AsyncMock
 from streams import from_async
 
 
-def test_from_async_emits_and_completes():
+def test_from_async_emits_and_completes() -> None:
     """Test that from_async emits the resolved value and completes."""
     mock_data = {"id": 1}
     spy = AsyncMock(return_value=mock_data)
 
-    results = []
+    results: list[dict] = []
     completed = []
 
     obs = from_async(spy)
@@ -27,12 +27,12 @@ def test_from_async_emits_and_completes():
     assert completed == [True]
 
 
-def test_from_async_emits_error():
+def test_from_async_emits_error() -> None:
     """Test that from_async will resolve with an error."""
     spy = AsyncMock(side_effect=ValueError("boom"))
 
     errors = []
-    completed = []
+    completed: list[bool] = []
 
     obs = from_async(spy)
     obs.subscribe(on_error=lambda e: errors.append(e))
@@ -46,14 +46,14 @@ def test_from_async_emits_error():
     assert completed == []
 
 
-def test_from_async_cancellation():
+def test_from_async_cancellation() -> None:
     step = asyncio.Event()
 
     async def sem() -> int:
         await step.wait()  # Semaphore symantics, drive test w/ step.set()
         return 42  # value is never emitted
 
-    results = []
+    results: list[int] = []
     obs = from_async(sem)
     subscription = obs.subscribe(on_next=results.append)
 
