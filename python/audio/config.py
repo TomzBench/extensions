@@ -78,4 +78,4 @@ class AppConfig:
     # Initial tunable defaults
     whisper_model: TunableWhisperModel = field(default_factory=lambda: WHISPER_SMALL_EN)
     vad_options: TunableVad = field(default_factory=lambda: VAD_SENTENCE)
-    device_id: int | None = None
+    device: TunableDevice = field(default_factory=TunableDevice)

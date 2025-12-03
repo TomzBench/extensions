@@ -2,6 +2,7 @@
 
 from concurrent.futures import Executor
 from enum import StrEnum
+from os import PathLike
 from typing import Self
 
 from reactivex import Observable
@@ -44,8 +45,8 @@ class Transcriber:
         self._whisper.close()
 
     @classmethod
-    def from_path(cls, model_path: str, executor: Executor | None = None) -> Self:
-        return cls(Whisper(model_path), executor)
+    def from_path(cls, model_path: str | PathLike[str], executor: Executor | None = None) -> Self:
+        return cls(Whisper(str(model_path)), executor)
 
     def transcribe(self, window: AudioChunk) -> Observable[str]:
         """Transcribe a single audio window (up to 30s of 16kHz audio)."""
