@@ -3,10 +3,12 @@
 from typing import Any
 
 import numpy as np
+import reactivex as rx
 from reactivex.testing.marbles import marbles_testing
 
+from audio.config import TunableVad
 from audio.types import AudioChunk
-from audio.vad import TunableVad, vad_gate
+from audio.vad import vad_gate
 
 type Lookup = dict[str | float, Any]
 
@@ -42,7 +44,7 @@ def test_vad_gate_filters_silence_emits_speech() -> None:
         source = cold("-a-b-c-d-|", lookup_in)  # type: ignore[call-arg]
         expected = exp("---x-y-(z,|)", lookup_out)  # type: ignore[call-arg]
 
-        result = start(source.pipe(vad_gate(model, INSTANT)))
+        result = start(source.pipe(vad_gate(model, rx.of(INSTANT))))
         assert result == expected
 
 
@@ -63,7 +65,7 @@ def test_vad_gate_slow_decay_delays_stop() -> None:
         source = cold("-a-b-c-d-|", lookup_in)  # type: ignore[call-arg]
         expected = exp("-a-b-c-(d,|)", lookup_in)  # type: ignore[call-arg]
 
-        result = start(source.pipe(vad_gate(model, SLOW_DECAY)))
+        result = start(source.pipe(vad_gate(model, rx.of(SLOW_DECAY))))
         assert result == expected
 
 
@@ -77,7 +79,7 @@ def test_vad_gate_completes_on_source_complete() -> None:
         source = cold("-a-a-|", lookup)  # type: ignore[call-arg]
         expected = exp("-a-a-|", lookup)  # type: ignore[call-arg]
 
-        result = start(source.pipe(vad_gate(model, INSTANT)))
+        result = start(source.pipe(vad_gate(model, rx.of(INSTANT))))
         assert result == expected
 
 
@@ -89,7 +91,7 @@ def test_vad_gate_empty_source() -> None:
         source = cold("-|", None)  # type: ignore[call-arg]
         expected = exp("-|", None)  # type: ignore[call-arg]
 
-        result = start(source.pipe(vad_gate(model, INSTANT)))
+        result = start(source.pipe(vad_gate(model, rx.of(INSTANT))))
         assert result == expected
 
 
@@ -103,5 +105,5 @@ def test_vad_gate_all_silence() -> None:
         source = cold("-a-a-a-|", lookup)  # type: ignore[call-arg]
         expected = exp("-------|", None)  # type: ignore[call-arg]
 
-        result = start(source.pipe(vad_gate(model, INSTANT)))
+        result = start(source.pipe(vad_gate(model, rx.of(INSTANT))))
         assert result == expected

@@ -1,15 +1,14 @@
 """Speech-to-text operators for RxPy streams."""
 
-import asyncio
-from asyncio import AbstractEventLoop
 from collections import deque
+from concurrent.futures import Executor
 from enum import StrEnum
 from typing import Self
 
 import numpy as np
 from reactivex import Observable
 from reactivex import operators as ops
-from streams import buffer_with_count_or_complete, from_async_threadsafe
+from streams import buffer_with_count_or_complete, from_thread
 from streams.utils import Operator
 
 from audio._stt import Whisper
@@ -39,18 +38,18 @@ CHUNK_SIZE = 512
 
 
 class Transcriber:
-    """Whisper transcriber with cached event loop for async operations."""
+    """Whisper transcriber with optional thread pool for blocking operations."""
 
-    def __init__(self, whisper: Whisper, loop: AbstractEventLoop | None = None):
+    def __init__(self, whisper: Whisper, executor: Executor | None = None):
         self._whisper = whisper
-        self._loop = loop or asyncio.get_running_loop()
+        self._executor = executor
 
     def close(self) -> None:
         self._whisper.close()
 
     @classmethod
-    def from_path(cls, model_path: str, loop: AbstractEventLoop | None = None) -> Self:
-        return cls(Whisper(model_path), loop)
+    def from_path(cls, model_path: str, executor: Executor | None = None) -> Self:
+        return cls(Whisper(model_path), executor)
 
     def transcribe(self, emit_interval: int = 8000) -> Operator[AudioChunk, str]:
         """Transcribe audio chunks using Whisper with a 30s sliding window.
@@ -64,7 +63,7 @@ class Transcriber:
         max_chunks = WINDOW_SIZE // CHUNK_SIZE
         chunks_per_emit = -(-emit_interval // CHUNK_SIZE)  # ceiling division
         whisper = self._whisper
-        loop = self._loop
+        executor = self._executor
 
         def accumulate(buf: deque[AudioChunk], chunk: AudioChunk) -> deque[AudioChunk]:
             assert len(chunk) == CHUNK_SIZE, f"Expected {CHUNK_SIZE} samples, got {len(chunk)}"
@@ -78,10 +77,7 @@ class Transcriber:
             return window
 
         def transcribe_window(window: AudioChunk) -> Observable[str]:
-            return from_async_threadsafe(
-                lambda: asyncio.to_thread(whisper.transcribe, window),
-                loop,
-            )
+            return from_thread(lambda: whisper.transcribe(window), executor)
 
         def _operator(source: Observable[AudioChunk]) -> Observable[str]:
             seed: deque[AudioChunk] = deque(maxlen=max_chunks)

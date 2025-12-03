@@ -3,22 +3,21 @@
 # WhisperModel - Tunable
 # Device (ie int or str) - Tunable
 
-from asyncio import AbstractEventLoop
 from collections.abc import Callable
+from concurrent.futures import Executor
 from dataclasses import dataclass
 
-import reactivex as rx
 import reactivex.operators as ops
 from reactivex import Observable
-from streams import filter_instance
+from streams import filter_instance_start_with
 from streams.switch_resource import switch_resource
 from streams.utils import Operator
 
-from audio.config import AppConfig, Tunable, TunableWhisperModel
+from audio.config import AppConfig, Tunable, TunableVad, TunableWhisperModel
 from audio.rechunk import rechunk
 from audio.silero import SileroVADModel
 from audio.stream import listen_to_mic
-from audio.vad import VADModel, vad_sentence
+from audio.vad import VADModel, vad_gate
 from audio.whisper import Transcriber
 
 
@@ -26,7 +25,7 @@ from audio.whisper import Transcriber
 class RecorderDependencies:
     vad: Callable[[], VADModel] = SileroVADModel
     whisper: Transcriber | None = None
-    loop: AbstractEventLoop | None = None
+    executor: Executor | None = None
 
 
 def recorder(
@@ -35,21 +34,27 @@ def recorder(
 ) -> Operator[Tunable, str]:
     cfg = maybe_cfg or AppConfig()
     deps = maybe_deps or RecorderDependencies()
+    vad_model = deps.vad()
 
     def operator(obs: Observable[Tunable]) -> Observable[str]:
-        return rx.merge(
-            rx.of(cfg.whisper_model),
-            obs.pipe(filter_instance(TunableWhisperModel), ops.map(lambda x: x.model)),
-        ).pipe(
-            ops.map(lambda x: Transcriber.from_path(str(cfg.model_cache_dir / x), deps.loop)),
-            switch_resource(
-                lambda whisper: listen_to_mic(cfg.device_id).pipe(
-                    rechunk(512),
-                    vad_sentence(deps.vad()),  # TODO (vad gate accept Observable[TunableVad])
-                    whisper.transcribe_seconds(0.5),  # TODO add emit interval to cfg
-                    ops.repeat(),
-                )
-            ),
+        def make_transcriber(t: TunableWhisperModel) -> Transcriber:
+            return Transcriber.from_path(str(cfg.model_cache_dir / t.model), deps.executor)
+
+        def make_pipeline(whisper: Transcriber) -> Observable[str]:
+            return listen_to_mic(cfg.device_id).pipe(
+                rechunk(512),
+                vad_gate(vad_model, vad_opts_obs),
+                whisper.transcribe_seconds(0.5),  # TODO add emit interval to cfg
+                ops.repeat(),
+            )
+
+        vad_opts_obs: Observable[TunableVad] = obs.pipe(
+            filter_instance_start_with(cfg.vad_options),
         )
+        transcribers: Observable[Transcriber] = obs.pipe(
+            filter_instance_start_with(cfg.whisper_model),
+            ops.map(make_transcriber),
+        )
+        return transcribers.pipe(switch_resource(make_pipeline))
 
     return operator

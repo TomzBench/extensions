@@ -40,7 +40,7 @@ class TunableVad:
 class TunableWhisperModel:
     """Whisper model selection."""
 
-    model: WhisperModel
+    model: WhisperModel = WhisperModel.SMALL_EN
 
 
 @dataclass(frozen=True)
@@ -57,6 +57,12 @@ VAD_SENTENCE = TunableVad(attack=0.8, decay=0.3, start=0.6, stop=0.4)
 VAD_PARAGRAPH = TunableVad(attack=0.8, decay=0.2, start=0.6, stop=0.3)
 VAD_STORY = TunableVad(attack=0.8, decay=0.1, start=0.5, stop=0.2)
 
+WHISPER_TINY_EN = TunableWhisperModel(WhisperModel.TINY_EN)
+WHISPER_BASE_EN = TunableWhisperModel(WhisperModel.BASE_EN)
+WHISPER_SMALL_EN = TunableWhisperModel()  # default
+WHISPER_MEDIUM_EN = TunableWhisperModel(WhisperModel.MEDIUM_EN)
+WHISPER_LARGE_V3_TURBO = TunableWhisperModel(WhisperModel.LARGE_V3_TURBO)
+
 
 @dataclass(frozen=True)
 class AppConfig:
@@ -70,6 +76,6 @@ class AppConfig:
     api_key: str | None = None
 
     # Initial tunable defaults
-    whisper_model: WhisperModel = WhisperModel.SMALL_EN
+    whisper_model: TunableWhisperModel = field(default_factory=lambda: WHISPER_SMALL_EN)
     vad_options: TunableVad = field(default_factory=lambda: VAD_SENTENCE)
     device_id: int | None = None

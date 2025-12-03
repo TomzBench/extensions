@@ -1,14 +1,15 @@
 """Integration test for Whisper transcription pipeline."""
 
-import asyncio
+import threading
 from pathlib import Path
 
 import numpy as np
 import pytest
 import reactivex as rx
 from audio.rechunk import rechunk
-from audio.whisper import CHUNK_SIZE, with_whisper
+from audio.whisper import CHUNK_SIZE, Transcriber
 from scripts.download_whisper import get_model_path
+from streams.switch_resource import switch_resource
 
 FIXTURES = Path(__file__).parent / ".fixtures"
 
@@ -32,25 +33,19 @@ def test_whisper_transcribes_prechunked_audio() -> None:
 
     results: list[str] = []
     errors: list[Exception] = []
-    loop = asyncio.new_event_loop()
+    done = threading.Event()
 
-    def run_test() -> None:
-        async def async_test() -> None:
-            done = asyncio.Event()
-            with_whisper(
-                model_path,
-                lambda t: rx.of(*chunks).pipe(t.transcribe_seconds(0.5)),
-            ).subscribe(
-                on_next=lambda text: results.append(text),
-                on_error=lambda e: errors.append(e),
-                on_completed=done.set,
-            )
-            await asyncio.wait_for(done.wait(), timeout=30.0)
+    rx.of(Transcriber.from_path(model_path)).pipe(
+        switch_resource(
+            lambda t: rx.of(*chunks).pipe(t.transcribe_seconds(0.5)),
+        ),
+    ).subscribe(
+        on_next=lambda text: results.append(text),
+        on_error=lambda e: errors.append(e),
+        on_completed=done.set,
+    )
 
-        loop.run_until_complete(async_test())
-
-    run_test()
-    loop.close()
+    done.wait(timeout=30.0)
 
     assert not errors, f"Errors: {errors}"
     assert len(results) >= 1, "Expected at least one transcription"
@@ -70,28 +65,22 @@ def test_whisper_transcribes_with_rechunk() -> None:
 
     results: list[str] = []
     errors: list[Exception] = []
-    loop = asyncio.new_event_loop()
+    done = threading.Event()
 
-    def run_test() -> None:
-        async def async_test() -> None:
-            done = asyncio.Event()
-            with_whisper(
-                model_path,
-                lambda t: rx.of(*mic_chunks).pipe(
-                    rechunk(CHUNK_SIZE),
-                    t.transcribe_seconds(0.5),
-                ),
-            ).subscribe(
-                on_next=lambda text: results.append(text),
-                on_error=lambda e: errors.append(e),
-                on_completed=done.set,
-            )
-            await asyncio.wait_for(done.wait(), timeout=30.0)
+    rx.of(Transcriber.from_path(model_path)).pipe(
+        switch_resource(
+            lambda t: rx.of(*mic_chunks).pipe(
+                rechunk(CHUNK_SIZE),
+                t.transcribe_seconds(0.5),
+            ),
+        ),
+    ).subscribe(
+        on_next=lambda text: results.append(text),
+        on_error=lambda e: errors.append(e),
+        on_completed=done.set,
+    )
 
-        loop.run_until_complete(async_test())
-
-    run_test()
-    loop.close()
+    done.wait(timeout=30.0)
 
     assert not errors, f"Errors: {errors}"
     assert len(results) >= 1, "Expected at least one transcription"
