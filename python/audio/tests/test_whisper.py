@@ -1,10 +1,9 @@
-"""Tests for STT transcribe operator."""
+"""Tests for Transcriber."""
 
 import threading
 from unittest.mock import MagicMock
 
 import numpy as np
-import reactivex as rx
 
 from audio._stt import Whisper
 from audio.types import AudioChunk
@@ -31,33 +30,22 @@ def mock_whisper(responses: dict[float, str] | None = None) -> MagicMock:
     return mock
 
 
-def test_transcriber_accumulates_chunks_and_emits() -> None:
-    """Transcriber buffers chunks and emits transcription.
-
-    Note: switch_map drops in-flight transcriptions when new windows arrive.
-    With synchronous emission, only the last window's transcription completes.
-    """
-    whisper = mock_whisper({0.0: "hello world"})
-
-    # emit_interval=1024 with CHUNK_SIZE=512 means emit every 2 chunks
+def test_transcriber_transcribes_window() -> None:
+    """Transcriber transcribes a single audio window."""
+    whisper = mock_whisper({1.0: "hello world"})
     transcriber = Transcriber(whisper)
-    operator = transcriber.transcribe(emit_interval=1024)
+
+    window = np.full(CHUNK_SIZE * 2, 1.0, dtype=np.float32)
 
     results: list[str] = []
-    errors: list[Exception] = []
     done = threading.Event()
-    # 2 chunks = 1 window emission
-    chunks = [chunk(0.0) for _ in range(2)]
 
-    rx.of(*chunks).pipe(operator).subscribe(
-        on_next=lambda t: results.append(t),
-        on_error=lambda e: errors.append(e),
+    transcriber.transcribe(window).subscribe(
+        on_next=results.append,
         on_completed=done.set,
     )
 
     done.wait(timeout=5.0)
 
-    assert not errors, f"Errors: {errors}"
-    assert len(results) == 1
-    assert results[0] == "hello world"
+    assert results == ["hello world"]
     assert len(whisper.calls) == 1

@@ -18,7 +18,8 @@ from audio.rechunk import rechunk
 from audio.silero import SileroVADModel
 from audio.stream import listen_to_mic
 from audio.vad import VADModel, vad_gate
-from audio.whisper import Transcriber
+from audio.whisper import SAMPLE_RATE, Transcriber
+from audio.window import window_chunks
 
 
 @dataclass
@@ -40,11 +41,13 @@ def recorder(
         def make_transcriber(t: TunableWhisperModel) -> Transcriber:
             return Transcriber.from_path(str(cfg.model_cache_dir / t.model), deps.executor)
 
-        def make_pipeline(whisper: Transcriber) -> Observable[str]:
+        def make_pipeline(transcriber: Transcriber) -> Observable[str]:
+            emit_interval = int(0.5 * SAMPLE_RATE)  # TODO add emit interval to cfg
             return listen_to_mic(cfg.device_id).pipe(
                 rechunk(512),
                 vad_gate(vad_model, vad_opts_obs),
-                whisper.transcribe_seconds(0.5),  # TODO add emit interval to cfg
+                window_chunks(emit_interval=emit_interval),
+                ops.switch_map(transcriber.transcribe),
                 ops.repeat(),
             )
 

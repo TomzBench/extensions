@@ -6,8 +6,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 import reactivex as rx
+import reactivex.operators as ops
+from reactivex import Observable
+
 from audio.rechunk import rechunk
-from audio.whisper import CHUNK_SIZE, Transcriber
+from audio.whisper import CHUNK_SIZE, SAMPLE_RATE, Transcriber
+from audio.window import window_chunks
 from scripts.download_whisper import get_model_path
 from streams.switch_resource import switch_resource
 
@@ -35,10 +39,16 @@ def test_whisper_transcribes_prechunked_audio() -> None:
     errors: list[Exception] = []
     done = threading.Event()
 
+    emit_interval = int(0.5 * SAMPLE_RATE)
+
+    def make_pipeline(t: Transcriber) -> Observable[str]:
+        return rx.of(*chunks).pipe(
+            window_chunks(emit_interval=emit_interval),
+            ops.switch_map(t.transcribe),
+        )
+
     rx.of(Transcriber.from_path(model_path)).pipe(
-        switch_resource(
-            lambda t: rx.of(*chunks).pipe(t.transcribe_seconds(0.5)),
-        ),
+        switch_resource(make_pipeline),
     ).subscribe(
         on_next=lambda text: results.append(text),
         on_error=lambda e: errors.append(e),
@@ -67,13 +77,17 @@ def test_whisper_transcribes_with_rechunk() -> None:
     errors: list[Exception] = []
     done = threading.Event()
 
+    emit_interval = int(0.5 * SAMPLE_RATE)
+
+    def make_pipeline(t: Transcriber) -> Observable[str]:
+        return rx.of(*mic_chunks).pipe(
+            rechunk(CHUNK_SIZE),
+            window_chunks(emit_interval=emit_interval),
+            ops.switch_map(t.transcribe),
+        )
+
     rx.of(Transcriber.from_path(model_path)).pipe(
-        switch_resource(
-            lambda t: rx.of(*mic_chunks).pipe(
-                rechunk(CHUNK_SIZE),
-                t.transcribe_seconds(0.5),
-            ),
-        ),
+        switch_resource(make_pipeline),
     ).subscribe(
         on_next=lambda text: results.append(text),
         on_error=lambda e: errors.append(e),
