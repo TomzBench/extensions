@@ -6,12 +6,12 @@ import numpy as np
 from reactivex.testing.marbles import marbles_testing
 
 from audio.types import AudioChunk
-from audio.vad import VadOptions, vad_gate
+from audio.vad import TunableVad, vad_gate
 
 type Lookup = dict[str | float, Any]
 
-INSTANT = VadOptions(attack=1.0, decay=1.0, start=0.6, stop=0.3)
-SLOW_DECAY = VadOptions(attack=1.0, decay=0.5, start=0.6, stop=0.3)
+INSTANT = TunableVad(attack=1.0, decay=1.0, start=0.6, stop=0.3)
+SLOW_DECAY = TunableVad(attack=1.0, decay=0.5, start=0.6, stop=0.3)
 
 
 def arr(*values: float) -> AudioChunk:

@@ -7,8 +7,8 @@ import numpy as np
 import reactivex as rx
 
 from audio._stt import Whisper
-from audio.stt import CHUNK_SIZE, Transcriber
 from audio.types import AudioChunk
+from audio.whisper import CHUNK_SIZE, Transcriber
 
 
 def chunk(value: float = 0.0) -> AudioChunk:

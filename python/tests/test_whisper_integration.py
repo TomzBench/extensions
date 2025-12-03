@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import reactivex as rx
 from audio.rechunk import rechunk
-from audio.stt import CHUNK_SIZE, with_whisper
+from audio.whisper import CHUNK_SIZE, with_whisper
 from scripts.download_whisper import get_model_path
 
 FIXTURES = Path(__file__).parent / ".fixtures"

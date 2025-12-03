@@ -1,94 +1,55 @@
-"""Speech-to-text operators for RxPy streams."""
+# Config (injectable?)
+# VadOptions - Tunable
+# WhisperModel - Tunable
+# Device (ie int or str) - Tunable
 
-import asyncio
 from asyncio import AbstractEventLoop
-from collections import deque
 from collections.abc import Callable
+from dataclasses import dataclass
 
-import numpy as np
 import reactivex as rx
+import reactivex.operators as ops
 from reactivex import Observable
-from reactivex import operators as ops
-from reactivex.abc import SchedulerBase
-from streams import buffer_with_count_or_complete, from_async_threadsafe
+from streams import filter_instance
+from streams.switch_resource import switch_resource
 from streams.utils import Operator
 
-from audio._stt import Whisper
-from audio.types import AudioChunk
-
-SAMPLE_RATE = 16000
-WINDOW_SIZE = SAMPLE_RATE * 30  # 30s Whisper window
-CHUNK_SIZE = 512
-
-
-class Transcriber:
-    """Whisper transcriber with cached event loop for async operations."""
-
-    def __init__(self, whisper: Whisper, loop: AbstractEventLoop):
-        self._whisper = whisper
-        self._loop = loop
-
-    def transcribe(self, emit_interval: int = 8000) -> Operator[AudioChunk, str]:
-        """Transcribe audio chunks using Whisper with a 30s sliding window.
-
-        Accumulates incoming chunks into a rolling buffer, emits transcriptions every
-        emit_interval samples. Uses switch_map to drop in-flight transcriptions if a
-        new window is ready (prevents backpressure buildup for live audio).
-
-        Expects fixed-size chunks of CHUNK_SIZE samples (use rechunk(512) upstream).
-        """
-        max_chunks = WINDOW_SIZE // CHUNK_SIZE
-        chunks_per_emit = -(-emit_interval // CHUNK_SIZE)  # ceiling division
-        whisper = self._whisper
-        loop = self._loop
-
-        def accumulate(buf: deque[AudioChunk], chunk: AudioChunk) -> deque[AudioChunk]:
-            assert len(chunk) == CHUNK_SIZE, f"Expected {CHUNK_SIZE} samples, got {len(chunk)}"
-            buf.append(chunk)
-            return buf
-
-        def build_window(states: list[deque[AudioChunk]]) -> AudioChunk:
-            window = np.concatenate(list(states[-1]))
-            if len(window) < WINDOW_SIZE:
-                window = np.pad(window, (0, WINDOW_SIZE - len(window)))
-            return window
-
-        def transcribe_window(window: AudioChunk) -> Observable[str]:
-            return from_async_threadsafe(
-                lambda: asyncio.to_thread(whisper.transcribe, window), loop
-            )
-
-        def _operator(source: Observable[AudioChunk]) -> Observable[str]:
-            seed: deque[AudioChunk] = deque(maxlen=max_chunks)
-            scanned: Observable[deque[AudioChunk]] = source.pipe(ops.scan(accumulate, seed))
-            buffered: Observable[list[deque[AudioChunk]]] = scanned.pipe(
-                buffer_with_count_or_complete(chunks_per_emit)
-            )
-            windowed: Observable[AudioChunk] = buffered.pipe(ops.map(build_window))
-            return windowed.pipe(ops.switch_map(transcribe_window))
-
-        return _operator
-
-    def transcribe_seconds(self, emit_interval: float = 0.5) -> Operator[AudioChunk, str]:
-        """Transcribe audio with emit_interval in seconds."""
-        return self.transcribe(int(emit_interval * SAMPLE_RATE))
+from audio.config import AppConfig, Tunable, TunableWhisperModel
+from audio.rechunk import rechunk
+from audio.silero import SileroVADModel
+from audio.stream import listen_to_mic
+from audio.vad import VADModel, vad_sentence
+from audio.whisper import Transcriber
 
 
-def with_whisper[T](
-    model_path: str,
-    factory: Callable[[Transcriber], Observable[T]],
-    loop: AbstractEventLoop | None = None,
-) -> Observable[T]:
-    """Manage Whisper context lifecycle for an observable pipeline.
+@dataclass
+class RecorderDependencies:
+    vad: Callable[[], VADModel] = SileroVADModel
+    whisper: Transcriber | None = None
+    loop: AbstractEventLoop | None = None
 
-    Loads the model once, passes a Transcriber to factory, and ensures cleanup on
-    termination. Use this to share a Whisper context across repeated subscriptions
-    (e.g., with repeat()).
-    """
 
-    def create(_scheduler: SchedulerBase | None) -> Observable[T]:
-        whisper = Whisper(model_path)
-        transcriber = Transcriber(whisper, loop or asyncio.get_running_loop())
-        return factory(transcriber).pipe(ops.finally_action(whisper.close))
+def recorder(
+    maybe_cfg: AppConfig | None = None,
+    maybe_deps: RecorderDependencies | None = None,
+) -> Operator[Tunable, str]:
+    cfg = maybe_cfg or AppConfig()
+    deps = maybe_deps or RecorderDependencies()
 
-    return rx.defer(create)
+    def operator(obs: Observable[Tunable]) -> Observable[str]:
+        return rx.merge(
+            rx.of(cfg.whisper_model),
+            obs.pipe(filter_instance(TunableWhisperModel), ops.map(lambda x: x.model)),
+        ).pipe(
+            ops.map(lambda x: Transcriber.from_path(str(cfg.model_cache_dir / x), deps.loop)),
+            switch_resource(
+                lambda whisper: listen_to_mic(cfg.device_id).pipe(
+                    rechunk(512),
+                    vad_sentence(deps.vad()),  # TODO (vad gate accept Observable[TunableVad])
+                    whisper.transcribe_seconds(0.5),  # TODO add emit interval to cfg
+                    ops.repeat(),
+                )
+            ),
+        )
+
+    return operator

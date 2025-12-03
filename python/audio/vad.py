@@ -16,7 +16,6 @@ Example:
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Protocol
 
 from reactivex import Observable
@@ -24,34 +23,12 @@ from reactivex import operators as ops
 from streams import take_while_inclusive
 from streams.utils import Operator
 
+from audio.config import VAD_PARAGRAPH, VAD_SENTENCE, VAD_STORY, TunableVad
 from audio.types import AudioChunk
 
 
 class VADModel(Protocol):
     def __call__(self, chunk: AudioChunk) -> float: ...
-
-
-@dataclass(frozen=True)
-class VadOptions:
-    """Configuration for VAD gate behavior.
-
-    Attributes:
-        attack: Smoothing factor for rising signal (higher = faster response to speech)
-        decay: Smoothing factor for falling signal (lower = slower response to silence)
-        start: Probability threshold to start speaking
-        stop: Probability threshold to stop speaking
-    """
-
-    attack: float = 0.8
-    decay: float = 0.3
-    start: float = 0.6
-    stop: float = 0.3
-
-
-# Presets for common use cases
-VAD_SENTENCE = VadOptions(attack=0.8, decay=0.3, start=0.6, stop=0.4)
-VAD_PARAGRAPH = VadOptions(attack=0.8, decay=0.2, start=0.6, stop=0.3)
-VAD_STORY = VadOptions(attack=0.8, decay=0.1, start=0.5, stop=0.2)
 
 
 def _make_smoother(attack: float, decay: float) -> Callable[[float], float]:
@@ -84,7 +61,7 @@ def _make_hysteresis(start: float, stop: float) -> Callable[[float], bool]:
 
 def vad_gate(
     model: VADModel,
-    options: VadOptions = VAD_SENTENCE,
+    options: TunableVad = VAD_SENTENCE,
 ) -> Operator[AudioChunk, AudioChunk]:
     """Gate audio chunks through VAD with configurable options."""
     smoother = _make_smoother(options.attack, options.decay)

@@ -1,5 +1,5 @@
 """Audio processing utilities."""
 
-from audio.rechunk import rechunk
+from audio.stt import recorder
 
-__all__ = ["rechunk"]
+__all__ = ["recorder"]

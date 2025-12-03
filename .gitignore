@@ -22,6 +22,7 @@ target/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+.coverage
 
 # test fixture data (may contain personally identifying info like ip addr)
 **/.fixtures/

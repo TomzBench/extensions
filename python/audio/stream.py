@@ -74,7 +74,8 @@ def listen_to_mic(device: int | None = None) -> Observable[AudioStream]:
     """Create an observable that emits audio samples from a microphone."""
 
     def subscribe(
-        obs: ObserverBase[AudioStream], _sched: SchedulerBase | None = None
+        obs: ObserverBase[AudioStream],
+        _sched: SchedulerBase | None = None,
     ) -> DisposableBase:
         def callback(data: AudioStream, _fr: int, _time: object, _status: object) -> None:
             obs.on_next(data.copy())
