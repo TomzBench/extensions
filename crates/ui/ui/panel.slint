@@ -1,0 +1,127 @@
+import { Button, ComboBox, Slider, VerticalBox, HorizontalBox, GroupBox, TextEdit } from "std-widgets.slint";
+
+export component Panel inherits Window {
+    title: "STT Tuner";
+    min-width: 400px;
+    min-height: 500px;
+
+    // Input properties (set from Rust)
+    in property <[string]> devices: [];
+    in property <[string]> models: ["tiny.en", "base.en", "small.en", "medium.en", "large-v3-turbo"];
+    in property <string> transcript: "";
+
+    // Output properties (read from Rust)
+    in-out property <int> selected-device-index: 0;
+    in-out property <int> selected-model-index: 2;  // default small.en
+    in-out property <float> vad-attack: 0.8;
+    in-out property <float> vad-decay: 0.3;
+    in-out property <float> vad-start: 0.6;
+    in-out property <float> vad-stop: 0.3;
+    in-out property <bool> is-running: false;
+
+    // Callbacks to Rust
+    callback device-changed();
+    callback model-changed();
+    callback vad-changed(float, float, float, float);
+    callback toggle-recording();
+
+    VerticalBox {
+        padding: 16px;
+        spacing: 12px;
+
+        GroupBox {
+            title: "Audio Device";
+            ComboBox {
+                model: devices;
+                current-index <=> selected-device-index;
+                selected(val) => { device-changed(); }
+            }
+        }
+
+        GroupBox {
+            title: "Whisper Model";
+            ComboBox {
+                model: models;
+                current-index <=> selected-model-index;
+                selected(val) => { model-changed(); }
+            }
+        }
+
+        GroupBox {
+            title: "VAD Parameters";
+            VerticalBox {
+                spacing: 8px;
+
+                HorizontalBox {
+                    Text { text: "Attack:"; min-width: 60px; }
+                    Slider {
+                        minimum: 0;
+                        maximum: 100;
+                        value: vad-attack * 100;
+                        changed(v) => {
+                            vad-attack = v / 100;
+                            vad-changed(vad-attack, vad-decay, vad-start, vad-stop);
+                        }
+                    }
+                    Text { text: "\{round(vad-attack * 100)}%"; min-width: 40px; }
+                }
+
+                HorizontalBox {
+                    Text { text: "Decay:"; min-width: 60px; }
+                    Slider {
+                        minimum: 0;
+                        maximum: 100;
+                        value: vad-decay * 100;
+                        changed(v) => {
+                            vad-decay = v / 100;
+                            vad-changed(vad-attack, vad-decay, vad-start, vad-stop);
+                        }
+                    }
+                    Text { text: "\{round(vad-decay * 100)}%"; min-width: 40px; }
+                }
+
+                HorizontalBox {
+                    Text { text: "Start:"; min-width: 60px; }
+                    Slider {
+                        minimum: 0;
+                        maximum: 100;
+                        value: vad-start * 100;
+                        changed(v) => {
+                            vad-start = v / 100;
+                            vad-changed(vad-attack, vad-decay, vad-start, vad-stop);
+                        }
+                    }
+                    Text { text: "\{round(vad-start * 100)}%"; min-width: 40px; }
+                }
+
+                HorizontalBox {
+                    Text { text: "Stop:"; min-width: 60px; }
+                    Slider {
+                        minimum: 0;
+                        maximum: 100;
+                        value: vad-stop * 100;
+                        changed(v) => {
+                            vad-stop = v / 100;
+                            vad-changed(vad-attack, vad-decay, vad-start, vad-stop);
+                        }
+                    }
+                    Text { text: "\{round(vad-stop * 100)}%"; min-width: 40px; }
+                }
+            }
+        }
+
+        Button {
+            text: is-running ? "Stop" : "Start";
+            clicked => { toggle-recording(); }
+        }
+
+        GroupBox {
+            title: "Transcript";
+            vertical-stretch: 1;
+            TextEdit {
+                text: transcript;
+                read-only: true;
+            }
+        }
+    }
+}

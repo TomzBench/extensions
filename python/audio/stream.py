@@ -14,10 +14,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import numpy as np
 import reactivex as rx
 import sounddevice as sd  # type: ignore[import-untyped]
-from numpy.typing import NDArray
 from reactivex import operators as ops
 from reactivex.abc import DisposableBase, ObserverBase, SchedulerBase
 from reactivex.disposable import Disposable
@@ -33,7 +31,7 @@ from audio.exceptions import AudioExtractionError
 if TYPE_CHECKING:
     from yt_dlp import _Params
 
-type AudioStream = NDArray[np.float32]
+from audio.types import AudioStream
 
 
 def safe_cleanup(tmpdir: tempfile.TemporaryDirectory) -> Callable:

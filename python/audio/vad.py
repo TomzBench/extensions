@@ -15,6 +15,7 @@ Example:
     )
 """
 
+from collections.abc import Callable
 from typing import Protocol
 
 from reactivex import Observable
@@ -28,6 +29,50 @@ from audio.types import AudioChunk
 
 class VADModel(Protocol):
     def __call__(self, chunk: AudioChunk) -> float: ...
+
+
+def while_speaking(tunable: Observable[TunableVad]) -> Operator[float, float]:
+    def _operator(source: Observable[float]) -> Observable[float]:
+        speaking = False
+
+        def is_silent(pair: tuple[float, TunableVad]) -> bool:
+            nonlocal speaking
+            (avr, opts) = pair
+            if not speaking and avr >= opts.start:
+                speaking = True
+            elif speaking and avr <= opts.stop:
+                speaking = False
+            return not speaking
+
+        def is_speaking(pair: tuple[float, TunableVad]) -> bool:
+            return not is_silent(pair)
+
+        def get_prob(pair: tuple[float, TunableVad]) -> float:
+            return pair[0]
+
+        return source.pipe(
+            ops.with_latest_from(tunable),
+            ops.skip_while(is_silent),
+            take_while_inclusive(is_speaking),
+            ops.map(get_prob),
+        )
+
+    return _operator
+
+
+def while_speaking_range(
+    tunable: Observable[TunableVad],
+) -> Callable[[Observable[float]], tuple[Observable[float], Observable[float]]]:
+    """Return (start, stop) observables that emit first/last prob of utterance."""
+
+    def _operator(source: Observable[float]) -> tuple[Observable[float], Observable[float]]:
+        tunable_shared: Observable[TunableVad] = tunable.pipe(ops.share())
+        start: Observable[float] = source.pipe(while_speaking(tunable_shared), ops.first())
+        stop: Observable[float] = source.pipe(while_speaking(tunable_shared), ops.last())
+
+        return (start, stop)
+
+    return _operator
 
 
 def vad_gate(
@@ -75,5 +120,3 @@ def vad_gate(
         return skipped.pipe(ops.map(get_chunk))
 
     return _operator
-
-

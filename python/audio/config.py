@@ -43,14 +43,7 @@ class TunableWhisperModel:
     model: WhisperModel = WhisperModel.SMALL_EN
 
 
-@dataclass(frozen=True)
-class TunableDevice:
-    """Audio input device selection."""
-
-    device_id: int | None = None  # None = system default
-
-
-type Tunable = TunableVad | TunableWhisperModel | TunableDevice
+type Tunable = TunableVad | TunableWhisperModel
 
 # Presets for common use cases
 VAD_SENTENCE = TunableVad(attack=0.8, decay=0.3, start=0.6, stop=0.4)
@@ -78,4 +71,3 @@ class AppConfig:
     # Initial tunable defaults
     whisper_model: TunableWhisperModel = field(default_factory=lambda: WHISPER_SMALL_EN)
     vad_options: TunableVad = field(default_factory=lambda: VAD_SENTENCE)
-    device: TunableDevice = field(default_factory=TunableDevice)

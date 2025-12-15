@@ -6,10 +6,10 @@ from reactivex import Observable
 from reactivex import operators as ops
 from streams.utils import Operator
 
-from audio.types import AudioChunk
+from audio.types import AudioChunk, AudioStream
 
 
-def rechunk(chunk_size: int = 512) -> Operator[AudioChunk, AudioChunk]:
+def rechunk(chunk_size: int = 512) -> Operator[AudioStream, AudioChunk]:
     """Accumulate audio into fixed-size chunks.
 
     Emits fixed-size chunks as they fill. On completion, emits any
